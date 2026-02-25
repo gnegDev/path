@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: path
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/path}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:path-jwt-secret-key-must-be-at-least-256-bits-long-for-hmac-sha256}
+    expiration: ${JWT_EXPIRATION:86400000}
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket: ${MINIO_BUCKET:path-documents}
+
+openrouter:
+  api-key: ${OPENROUTER_API_KEY:-}
+  base-url: https://openrouter.ai/api/v1
+  model: google/gemma-3-12b-it:free
+
+yandex:
+  cloud:
+    api-key: ${YANDEX_CLOUD_API_KEY:-}
+    base-url: https://rest-assistant.api.cloud.yandex.net/v1
+    project: ${YANDEX_CLOUD_PROJECT:b1gnpsrg9bte58p5mgf1}
+    prompt-id: ${YANDEX_CLOUD_PROMPT_ID:fvt5923hvsftsb454n40}
