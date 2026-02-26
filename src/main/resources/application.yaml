@@ -42,3 +42,4 @@ yandex:
     base-url: https://rest-assistant.api.cloud.yandex.net/v1
     project: ${YANDEX_CLOUD_PROJECT:b1gnpsrg9bte58p5mgf1}
     prompt-id: ${YANDEX_CLOUD_PROMPT_ID:fvt5923hvsftsb454n40}
+    extraction-prompt-id: ${YANDEX_CLOUD_EXTRACTION_PROMPT_ID:fvt6dtmo6v50cnjh8f8n}

@@ -62,6 +62,7 @@ services:
       YANDEX_CLOUD_API_KEY: ${YANDEX_CLOUD_API_KEY:-}
       YANDEX_CLOUD_PROJECT: ${YANDEX_CLOUD_PROJECT:-b1gnpsrg9bte58p5mgf1}
       YANDEX_CLOUD_PROMPT_ID: ${YANDEX_CLOUD_PROMPT_ID:-fvt5923hvsftsb454n40}
+      YANDEX_CLOUD_EXTRACTION_PROMPT_ID: ${YANDEX_CLOUD_EXTRACTION_PROMPT_ID:-fvt6dtmo6v50cnjh8f8n}
     depends_on:
       postgres:
         condition: service_healthy
