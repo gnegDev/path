@@ -55,14 +55,16 @@ public class YandexLlmService {
 
         Map<String, Object> body = Map.of(
                 "prompt", Map.of("id", promptId),
-                "input", input
+                "input", input,
+                "stream", false
         );
 
         String rawResponse = restClient.post()
                 .uri("/responses")
                 .header("Authorization", "Bearer " + apiKey)
-                .header("OpenAI-Project", project)
                 .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .header("OpenAI-Project", project)
                 .body(body)
                 .retrieve()
                 .body(String.class);
