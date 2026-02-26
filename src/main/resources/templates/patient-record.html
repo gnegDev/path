@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title th:text="'Карта пациента — ' + (${doc.extractedData?.fioInitials} ?: 'PATH')">Карта пациента</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" th:href="@{/css/styles.css}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #0A0F2C 0%, #080D25 50%, #0A0F2C 100%); color: white; min-height: 100vh; overflow-x: hidden; }
+    .dim-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+    /* Sidebar */
+    .db-sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; background: linear-gradient(180deg, #0E1338 0%, #0B1030 100%); border-right: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; z-index: 200; transition: width 0.35s cubic-bezier(0.4,0,0.2,1); overflow: hidden; }
+    .db-sidebar.collapsed { width: 72px; }
+    .db-sidebar-logo { display: flex; align-items: center; gap: 12px; padding: 0 20px; min-height: 68px; text-decoration: none; white-space: nowrap; overflow: hidden; }
+    .db-sidebar-logo-icon { width: 36px; height: 36px; border-radius: 10px; background: rgba(0,201,167,0.12); border: 1px solid rgba(0,201,167,0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .db-sidebar-logo-icon svg { width: 20px; height: 20px; }
+    .db-sidebar-logo-text { font-size: 1.25rem; font-weight: 700; background: linear-gradient(135deg, #00C9A7, #60A5FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; transition: opacity 0.25s; }
+    .db-sidebar.collapsed .db-sidebar-logo-text { opacity: 0; pointer-events: none; }
+    .db-sidebar-nav { flex: 1; padding: 16px 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; overflow-x: hidden; }
+    .db-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: rgba(255,255,255,0.45); font-size: 0.9375rem; font-weight: 500; white-space: nowrap; transition: all 0.2s; position: relative; text-decoration: none; cursor: pointer; }
+    .db-nav-item:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.7); }
+    .db-nav-item.active { background: rgba(0,201,167,0.1); color: #00C9A7; }
+    .db-nav-item.active::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 24px; border-radius: 0 3px 3px 0; background: #00C9A7; }
+    .db-nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .db-nav-label { transition: opacity 0.25s; }
+    .db-sidebar.collapsed .db-nav-label { opacity: 0; pointer-events: none; }
+    .db-nav-item .db-tooltip { position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); background: #1A1F45; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 6px 12px; font-size: 0.8125rem; color: #fff; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 300; }
+    .db-sidebar.collapsed .db-nav-item:hover .db-tooltip { opacity: 1; }
+    .db-sidebar:not(.collapsed) .db-tooltip { display: none; }
+    .db-sidebar-footer { padding: 12px 8px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 4px; }
+    .db-collapse-btn { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: rgba(255,255,255,0.35); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap; background: none; border: none; font-family: inherit; width: 100%; }
+    .db-collapse-btn:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.6); }
+    .db-collapse-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .db-collapse-label { transition: opacity 0.25s; }
+    .db-sidebar.collapsed .db-collapse-label { opacity: 0; pointer-events: none; }
+    .db-logout-btn { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: rgba(255,255,255,0.4); font-size: 0.9375rem; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap; text-decoration: none; position: relative; }
+    .db-logout-btn:hover { color: #e05555; background: rgba(224,85,85,0.08); }
+    .db-logout-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .db-logout-label { transition: opacity 0.25s; }
+    .db-sidebar.collapsed .db-logout-label { opacity: 0; pointer-events: none; }
+
+    /* Header */
+    .app-header { position: fixed; top: 0; right: 0; left: 240px; height: 68px; background: rgba(10,15,44,0.8); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; z-index: 150; transition: left 0.35s cubic-bezier(0.4,0,0.2,1); }
+    body.sidebar-collapsed .app-header { left: 72px; }
+    .app-header-title { font-size: 1rem; font-weight: 600; color: #fff; }
+    .app-header-right { display: flex; align-items: center; gap: 12px; }
+    .doctor-name-badge { font-size: 0.8125rem; color: rgba(255,255,255,0.5); }
+
+    /* Main */
+    .main-area { position: relative; z-index: 10; padding-top: 68px; margin-left: 240px; transition: margin-left 0.35s cubic-bezier(0.4,0,0.2,1); }
+    body.sidebar-collapsed .main-area { margin-left: 72px; }
+    .content-wrapper { padding: 24px 32px; }
+
+    /* Back button */
+    .back-btn { display: inline-flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.35); font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: color 0.2s; background: none; border: none; text-decoration: none; margin-bottom: 20px; padding: 0; }
+    .back-btn:hover { color: #00C9A7; }
+    .back-btn svg { width: 16px; height: 16px; }
+
+    /* Patient header */
+    .patient-header { position: relative; border-radius: 12px; padding: 24px; overflow: hidden; background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(10px); margin-bottom: 24px; }
+    .patient-header .accent-line { position: absolute; top: 0; left: 24px; right: 24px; height: 2px; }
+    .accent-line-ok { background: linear-gradient(90deg, transparent, rgba(0,201,167,0.4), transparent); }
+    .accent-line-flag { background: linear-gradient(90deg, transparent, rgba(245,158,11,0.4), transparent); }
+    .accent-line-review { background: linear-gradient(90deg, transparent, rgba(239,68,68,0.4), transparent); }
+    .patient-name { color: white; font-size: 1.375rem; font-weight: 700; margin-bottom: 8px; }
+    .patient-diagnosis { font-size: 1rem; color: rgba(255,255,255,0.7); margin-bottom: 16px; }
+    .patient-meta-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 16px; }
+    .patient-meta-item { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.45); font-size: 0.8125rem; }
+    .patient-meta-item svg { width: 14px; height: 14px; color: rgba(255,255,255,0.25); }
+    .status-badge { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 10px; font-size: 0.8125rem; font-weight: 600; }
+    .status-badge-ok { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); color: #10B981; }
+    .status-badge-flag { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); color: #F59E0B; }
+    .status-badge-review { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #EF4444; }
+
+    /* Patient action buttons */
+    .patient-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+    .btn-ai-chat { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 10px; background: linear-gradient(135deg, #00C9A7, #00B89A); color: #0A0F2C; font-size: 0.875rem; font-weight: 600; border: none; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+    .btn-ai-chat:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,201,167,0.4); }
+    .btn-download { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: 0.875rem; font-weight: 500; text-decoration: none; transition: all 0.2s; }
+    .btn-download:hover { border-color: rgba(0,201,167,0.3); color: #00C9A7; }
+
+    /* Error box */
+    .error-box { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; }
+    .error-box h3 { color: #EF4444; font-size: 0.9375rem; font-weight: 600; margin-bottom: 8px; }
+    .error-box p { color: rgba(239,68,68,0.7); font-size: 0.875rem; line-height: 1.6; }
+
+    /* Processing box */
+    .processing-box { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.15); border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; color: #F59E0B; font-size: 0.875rem; }
+
+    /* Data section */
+    .data-section { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .data-section-title { display: flex; align-items: center; gap: 10px; font-size: 0.9375rem; font-weight: 600; color: #fff; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .data-section-title svg { width: 18px; height: 18px; color: #00C9A7; }
+    .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 700px) { .data-grid { grid-template-columns: 1fr; } }
+    .data-item { display: flex; flex-direction: column; gap: 4px; }
+    .data-label { font-size: 0.75rem; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+    .data-value { font-size: 0.875rem; color: rgba(255,255,255,0.75); font-weight: 500; }
+
+    /* Table */
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    .data-table th { text-align: left; font-size: 0.6875rem; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.04em; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .data-table td { padding: 10px 12px; font-size: 0.8125rem; color: rgba(255,255,255,0.7); border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: top; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: rgba(0,201,167,0.02); }
+
+    /* Empty table */
+    .data-empty { text-align: center; padding: 20px; color: rgba(255,255,255,0.25); font-size: 0.8125rem; }
+  </style>
+</head>
+<body>
+  <canvas class="dim-canvas" id="dim-canvas"></canvas>
+
+  <!-- Sidebar -->
+  <aside class="db-sidebar" id="sidebar">
+    <a th:href="@{/web/dashboard}" class="db-sidebar-logo">
+      <div class="db-sidebar-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00C9A7" stroke-width="2" stroke-linecap="round">
+          <path d="M12 2v6M12 16v6M2 12h6M16 12h6"/>
+          <circle cx="12" cy="12" r="3" fill="none"/>
+        </svg>
+      </div>
+      <span class="db-sidebar-logo-text">PATHAI</span>
+    </a>
+    <nav class="db-sidebar-nav">
+      <a th:href="@{/web/dashboard}" class="db-nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="db-nav-label">Пациенты</span>
+        <span class="db-tooltip">Пациенты</span>
+      </a>
+      <a th:href="@{/web/patients/{id}/chat(id=${doc.id})}" class="db-nav-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="db-nav-label">AI-анализ</span>
+        <span class="db-tooltip">AI-анализ</span>
+      </a>
+    </nav>
+    <div class="db-sidebar-footer">
+      <button class="db-collapse-btn" id="sidebar-toggle-btn">
+        <svg id="icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <svg id="icon-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="db-collapse-label">Свернуть</span>
+      </button>
+      <a th:href="@{/web/logout}" class="db-logout-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span class="db-logout-label">Выйти</span>
+        <span class="db-tooltip">Выйти</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Header -->
+  <header class="app-header" id="app-header">
+    <div class="app-header-title">Карта пациента</div>
+    <div class="app-header-right">
+      <span class="doctor-name-badge" th:text="${username}">Врач</span>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <div class="main-area" id="main-area">
+    <div class="content-wrapper">
+      <a th:href="@{/web/dashboard}" class="back-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Назад к списку
+      </a>
+
+      <!-- Patient header card -->
+      <div class="patient-header">
+        <div class="accent-line"
+             th:classappend="${doc.status == 'COMPLETED'} ? 'accent-line-ok' : (${doc.status == 'FAILED'} ? 'accent-line-review' : 'accent-line-flag')"></div>
+
+        <h1 class="patient-name" th:text="${doc.extractedData?.fioInitials} ?: 'Пациент без имени'">Пациент</h1>
+        <div class="patient-diagnosis" th:text="${doc.extractedData?.diagnosisPrimary} ?: '—'">—</div>
+
+        <div class="patient-meta-row">
+          <div class="patient-meta-item" th:if="${doc.extractedData?.dateOfBirth != null}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span th:text="'Дата рождения: ' + ${doc.extractedData.dateOfBirth}"></span>
+          </div>
+          <div class="patient-meta-item" th:if="${doc.extractedData?.stage != null}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span th:text="'Стадия: ' + ${doc.extractedData.stage}"></span>
+          </div>
+          <div class="patient-meta-item" th:if="${doc.extractedData?.subtype != null}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span th:text="'Подтип: ' + ${doc.extractedData.subtype}"></span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <span class="status-badge"
+                th:classappend="${doc.status == 'COMPLETED'} ? 'status-badge-ok' : (${doc.status == 'FAILED'} ? 'status-badge-review' : 'status-badge-flag')">
+            <span th:switch="${doc.status}">
+              <span th:case="'COMPLETED'">Обработан</span>
+              <span th:case="'FAILED'">Ошибка обработки</span>
+              <span th:case="'PROCESSING'">Обрабатывается</span>
+              <span th:case="*">Ожидание</span>
+            </span>
+          </span>
+        </div>
+
+        <!-- Actions -->
+        <div class="patient-actions">
+          <a th:href="@{/web/patients/{id}/chat(id=${doc.id})}" class="btn-ai-chat">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Открыть AI-анализ
+          </a>
+          <a th:href="@{/web/patients/{id}/download/medical-history(id=${doc.id})}" class="btn-download">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Скачать историю болезни
+          </a>
+          <a th:if="${doc.treatmentPlanFilename != null}"
+             th:href="@{/web/patients/{id}/download/treatment-plan(id=${doc.id})}" class="btn-download">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Скачать план лечения
+          </a>
+        </div>
+      </div>
+
+      <!-- Error message if FAILED -->
+      <div class="error-box" th:if="${doc.status == 'FAILED'}">
+        <h3>Ошибка обработки документа</h3>
+        <p th:text="${doc.errorMessage} ?: 'Произошла ошибка при обработке документа.'"></p>
+      </div>
+
+      <!-- Processing message -->
+      <div class="processing-box" th:if="${doc.status == 'PROCESSING' or doc.status == 'PENDING'}">
+        Документ обрабатывается. Данные пациента появятся после завершения обработки.
+      </div>
+
+      <!-- Extracted data sections -->
+      <div th:if="${doc.extractedData != null}">
+
+        <!-- Basic info -->
+        <div class="data-section">
+          <div class="data-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Основные данные
+          </div>
+          <div class="data-grid">
+            <div class="data-item">
+              <span class="data-label">ФИО / Инициалы</span>
+              <span class="data-value" th:text="${doc.extractedData.fioInitials} ?: '—'">—</span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Дата рождения</span>
+              <span class="data-value" th:text="${doc.extractedData.dateOfBirth} ?: '—'">—</span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Основной диагноз</span>
+              <span class="data-value" th:text="${doc.extractedData.diagnosisPrimary} ?: '—'">—</span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Стадия</span>
+              <span class="data-value" th:text="${doc.extractedData.stage} ?: '—'">—</span>
+            </div>
+            <div class="data-item">
+              <span class="data-label">Подтип</span>
+              <span class="data-value" th:text="${doc.extractedData.subtype} ?: '—'">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Treatment history -->
+        <div class="data-section" th:if="${!#lists.isEmpty(doc.extractedData.treatmentHistory)}">
+          <div class="data-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            История лечения
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Вид лечения</th>
+                <th>Описание</th>
+                <th>Период</th>
+                <th>Результат</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="t : ${doc.extractedData.treatmentHistory}">
+                <td th:text="${t.treatmentType} ?: '—'">—</td>
+                <td th:text="${t.description} ?: '—'">—</td>
+                <td>
+                  <span th:text="${t.startDate} ?: '—'">—</span>
+                  <span th:if="${t.endDate != null}"> — </span>
+                  <span th:if="${t.endDate != null}" th:text="${t.endDate}"></span>
+                </td>
+                <td th:text="${t.outcomeDynamic} ?: '—'">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Biopsy results -->
+        <div class="data-section" th:if="${!#lists.isEmpty(doc.extractedData.biopsyResults)}">
+          <div class="data-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Результаты биопсии
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Вид</th>
+                <th>Результат</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="b : ${doc.extractedData.biopsyResults}">
+                <td th:text="${b.date} ?: '—'">—</td>
+                <td th:text="${b.type} ?: '—'">—</td>
+                <td th:text="${b.resultSummary} ?: '—'">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Consultations -->
+        <div class="data-section" th:if="${!#lists.isEmpty(doc.extractedData.consultations)}">
+          <div class="data-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Консультации
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Рекомендация</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="c : ${doc.extractedData.consultations}">
+                <td th:text="${c.date} ?: '—'" style="white-space: nowrap;">—</td>
+                <td th:text="${c.recommendation} ?: '—'">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Imaging results -->
+        <div class="data-section" th:if="${!#lists.isEmpty(doc.extractedData.imagingResults)}">
+          <div class="data-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Результаты визуализации
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Тип</th>
+                <th>Находки</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="i : ${doc.extractedData.imagingResults}">
+                <td th:text="${i.date} ?: '—'" style="white-space: nowrap;">—</td>
+                <td th:text="${i.type} ?: '—'">—</td>
+                <td th:text="${i.findings} ?: '—'">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+      <!-- End extracted data -->
+
+    </div>
+  </div>
+
+  <script>
+    // Particle canvas
+    (function() {
+      const canvas = document.getElementById('dim-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+      resize(); window.addEventListener('resize', resize);
+      const particles = [];
+      for (let i = 0; i < 30; i++) {
+        particles.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, vx:(Math.random()-0.5)*0.2, vy:(Math.random()-0.5)*0.2, r:0.3+Math.random()*1.2, o:0.03+Math.random()*0.1 });
+      }
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (const p of particles) {
+          p.x+=p.vx; p.y+=p.vy;
+          if (p.x<0||p.x>canvas.width) p.vx*=-1;
+          if (p.y<0||p.y>canvas.height) p.vy*=-1;
+          ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+          ctx.fillStyle='rgba(0,201,167,'+p.o+')'; ctx.fill();
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+    })();
+
+    // Sidebar toggle
+    (function() {
+      const sidebar = document.getElementById('sidebar');
+      const toggleBtn = document.getElementById('sidebar-toggle-btn');
+      const iconLeft = document.getElementById('icon-left');
+      const iconRight = document.getElementById('icon-right');
+      function applyState(collapsed) {
+        if (collapsed) {
+          sidebar.classList.add('collapsed'); document.body.classList.add('sidebar-collapsed');
+          iconLeft.style.display='none'; iconRight.style.display='block';
+        } else {
+          sidebar.classList.remove('collapsed'); document.body.classList.remove('sidebar-collapsed');
+          iconLeft.style.display='block'; iconRight.style.display='none';
+        }
+      }
+      applyState(localStorage.getItem('sidebar-collapsed') === 'true');
+      if (toggleBtn) toggleBtn.addEventListener('click', () => {
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        applyState(!isCollapsed);
+        localStorage.setItem('sidebar-collapsed', !isCollapsed);
+      });
+    })();
+  </script>
+</body>
+</html>
