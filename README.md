@@ -163,16 +163,16 @@ AI сопоставит историю болезни с планом лечен
 
 ### Стек технологий
 
-| Слой | Технология |
-|---|---|
-| Backend | Spring Boot 4.0.2, Java 21 |
-| База данных | PostgreSQL 16, Spring Data JPA (Hibernate) |
-| Хранилище файлов | MinIO (S3-совместимое объектное хранилище) |
-| Безопасность | Spring Security, JWT (HMAC-SHA256, jjwt 0.12) |
-| Frontend | Thymeleaf, HTML/CSS/JS (без фреймворков) |
-| LLM (извлечение) | Yandex Cloud AI Assistants Responses API |
-| LLM (анализ) | Yandex Cloud AI Assistants Responses API |
-| Контейнеризация | Docker, Docker Compose |
+| Слой | Технология                                                        |
+|---|-------------------------------------------------------------------|
+| Backend | Spring Boot 4.0.2, Java 21                                        |
+| База данных | PostgreSQL 16, Spring Data JPA (Hibernate)                        |
+| Хранилище файлов | MinIO (S3-совместимое объектное хранилище)                        |
+| Безопасность | Spring Security, JWT (HMAC-SHA256, jjwt 0.12)                     |
+| Frontend | Thymeleaf, HTML/CSS/JS (без фреймворков)                          |
+| LLM (извлечение) | Yandex Cloud AI Assistants Responses API (YandexGPT 5 Lite)       |
+| LLM (анализ) | Yandex Cloud AI Assistants Responses API (Qwen3 235B + WebSearch) |
+| Контейнеризация | Docker, Docker Compose                                            |
 
 ---
 
