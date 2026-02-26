@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Панель врача — PATH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" th:href="@{/css/styles.css}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { background: linear-gradient(135deg, #0A0F2C 0%, #080D25 50%, #0A0F2C 100%); overflow-x: hidden; font-family: 'Inter', sans-serif; color: #E2E8F0; }
+    #particle-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+    /* Sidebar */
+    .db-sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: 240px; background: linear-gradient(180deg, #0E1338 0%, #0B1030 100%); border-right: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; z-index: 200; transition: width 0.35s cubic-bezier(0.4,0,0.2,1); overflow: hidden; }
+    .db-sidebar.collapsed { width: 72px; }
+    .db-sidebar-logo { display: flex; align-items: center; gap: 12px; padding: 0 20px; min-height: 68px; cursor: pointer; text-decoration: none; white-space: nowrap; overflow: hidden; }
+    .db-sidebar-logo-icon { width: 36px; height: 36px; border-radius: 10px; background: rgba(0,201,167,0.12); border: 1px solid rgba(0,201,167,0.3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .db-sidebar-logo-icon svg { width: 20px; height: 20px; }
+    .db-sidebar-logo-text { font-size: 1.25rem; font-weight: 700; background: linear-gradient(135deg, #00C9A7, #60A5FA); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; transition: opacity 0.25s; }
+    .db-sidebar.collapsed .db-sidebar-logo-text { opacity: 0; pointer-events: none; }
+    .db-sidebar-nav { flex: 1; padding: 16px 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; overflow-x: hidden; }
+    .db-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: rgba(255,255,255,0.45); font-size: 0.9375rem; font-weight: 500; white-space: nowrap; transition: all 0.2s; position: relative; text-decoration: none; cursor: pointer; }
+    .db-nav-item:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.7); }
+    .db-nav-item.active { background: rgba(0,201,167,0.1); color: #00C9A7; }
+    .db-nav-item.active::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 24px; border-radius: 0 3px 3px 0; background: #00C9A7; }
+    .db-nav-item svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .db-nav-label { transition: opacity 0.25s; }
+    .db-sidebar.collapsed .db-nav-label { opacity: 0; pointer-events: none; }
+    .db-nav-item .db-tooltip { position: absolute; left: calc(100% + 12px); top: 50%; transform: translateY(-50%); background: #1A1F45; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 6px 12px; font-size: 0.8125rem; color: #fff; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 300; }
+    .db-sidebar.collapsed .db-nav-item:hover .db-tooltip { opacity: 1; }
+    .db-sidebar:not(.collapsed) .db-tooltip { display: none; }
+    .db-sidebar-footer { padding: 12px 8px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 4px; }
+    .db-collapse-btn { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: rgba(255,255,255,0.35); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap; background: none; border: none; font-family: inherit; width: 100%; }
+    .db-collapse-btn:hover { background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.6); }
+    .db-collapse-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .db-collapse-label { transition: opacity 0.25s; }
+    .db-sidebar.collapsed .db-collapse-label { opacity: 0; pointer-events: none; }
+    .db-logout-btn { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 10px; color: rgba(255,255,255,0.4); font-size: 0.9375rem; font-weight: 500; cursor: pointer; transition: all 0.2s; white-space: nowrap; text-decoration: none; position: relative; }
+    .db-logout-btn:hover { color: #e05555; background: rgba(224,85,85,0.08); }
+    .db-logout-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+    .db-logout-label { transition: opacity 0.25s; }
+    .db-sidebar.collapsed .db-logout-label { opacity: 0; pointer-events: none; }
+
+    /* Header */
+    .db-header { position: fixed; top: 0; left: 240px; right: 0; height: 68px; background: rgba(10,15,44,0.8); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; z-index: 150; transition: left 0.35s cubic-bezier(0.4,0,0.2,1); }
+    body.sidebar-collapsed .db-header { left: 72px; }
+    .db-header-title { font-size: 1.125rem; font-weight: 600; color: #fff; }
+    .db-header-subtitle { font-size: 0.8125rem; color: rgba(255,255,255,0.35); }
+    .db-header-right { display: flex; align-items: center; gap: 16px; }
+    .db-header-divider { width: 1px; height: 32px; background: rgba(255,255,255,0.08); }
+    .db-doctor-info { display: flex; align-items: center; gap: 10px; }
+    .db-doctor-text { text-align: right; }
+    .db-doctor-name { font-size: 0.875rem; font-weight: 600; color: #fff; }
+    .db-doctor-role { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+    .db-doctor-avatar { width: 36px; height: 36px; border-radius: 12px; border: 2px solid rgba(0,201,167,0.5); background: rgba(0,201,167,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: #00C9A7; flex-shrink: 0; }
+
+    /* Notification bell */
+    .db-bell-wrap { position: relative; }
+    .db-bell-btn { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; color: rgba(255,255,255,0.6); transition: all 0.2s; position: relative; }
+    .db-bell-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
+    .db-bell-btn svg { width: 18px; height: 18px; }
+    .db-notif-dropdown { position: absolute; top: calc(100% + 8px); right: 0; width: 320px; background: #111640; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.5); z-index: 300; display: none; overflow: hidden; }
+    .db-notif-dropdown.open { display: block; }
+    .db-notif-dropdown-header { padding: 12px 16px; font-size: 0.8125rem; font-weight: 600; color: rgba(255,255,255,0.5); border-bottom: 1px solid rgba(255,255,255,0.06); }
+
+    /* Main content */
+    .db-main { margin-left: 240px; padding-top: 68px; min-height: 100vh; position: relative; z-index: 1; transition: margin-left 0.35s cubic-bezier(0.4,0,0.2,1); }
+    body.sidebar-collapsed .db-main { margin-left: 72px; }
+    .db-page { padding: 28px; }
+
+    /* Stats */
+    .db-section-top { margin-bottom: 24px; }
+    .db-section-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .db-section-title { font-size: 1.375rem; font-weight: 700; color: #fff; }
+    .db-updated-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25); border-radius: 9999px; padding: 3px 10px; font-size: 0.6875rem; font-weight: 600; color: #10B981; }
+    .db-updated-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #10B981; }
+    .db-section-subtitle { font-size: 0.875rem; color: rgba(255,255,255,0.4); }
+    .db-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+    @media (max-width: 1100px) { .db-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .db-stats-grid { grid-template-columns: 1fr; } }
+    .db-stat-card { background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 20px; position: relative; overflow: hidden; transition: all 0.25s; }
+    .db-stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 16px 16px 0 0; }
+    .db-stat-card[data-color="teal"]::before { background: linear-gradient(90deg, #00C9A7, #00E5C2); }
+    .db-stat-card[data-color="yellow"]::before { background: linear-gradient(90deg, #F59E0B, #FCD34D); }
+    .db-stat-card[data-color="blue"]::before { background: linear-gradient(90deg, #6B7FFF, #8B9AFF); }
+    .db-stat-card[data-color="teal"]:hover { border-color: rgba(0,201,167,0.3); box-shadow: 0 4px 24px rgba(0,201,167,0.1); }
+    .db-stat-card[data-color="yellow"]:hover { border-color: rgba(245,158,11,0.3); box-shadow: 0 4px 24px rgba(245,158,11,0.1); }
+    .db-stat-card[data-color="blue"]:hover { border-color: rgba(107,127,255,0.3); box-shadow: 0 4px 24px rgba(107,127,255,0.1); }
+    .db-stat-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+    .db-stat-label { font-size: 0.8125rem; color: rgba(255,255,255,0.5); line-height: 1.4; }
+    .db-stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .db-stat-icon svg { width: 20px; height: 20px; }
+    .db-stat-icon-teal { background: rgba(0,201,167,0.12); color: #00C9A7; }
+    .db-stat-icon-yellow { background: rgba(245,158,11,0.12); color: #F59E0B; }
+    .db-stat-icon-blue { background: rgba(107,127,255,0.12); color: #6B7FFF; }
+    .db-stat-value { font-size: 2.25rem; font-weight: 700; line-height: 1; color: #fff; }
+    .db-stat-value[data-color="teal"] { color: #00C9A7; }
+    .db-stat-value[data-color="yellow"] { color: #F59E0B; }
+    .db-stat-value[data-color="blue"] { color: #6B7FFF; }
+
+    /* Toolbar */
+    .db-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .db-search-wrap { position: relative; flex: 1; min-width: 220px; }
+    .db-search-wrap input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 14px 10px 40px; color: #fff; font-size: 0.9rem; font-family: inherit; transition: border-color 0.2s; }
+    .db-search-wrap input:focus { border-color: #00C9A7; outline: none; }
+    .db-search-wrap input::placeholder { color: rgba(255,255,255,0.3); }
+    .db-search-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.3); width: 16px; height: 16px; }
+    .db-add-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 10px; background: linear-gradient(135deg, #00C9A7, #00B89A); color: #0A0F2C; font-size: 0.875rem; font-weight: 600; border: none; cursor: pointer; font-family: inherit; transition: all 0.2s; white-space: nowrap; }
+    .db-add-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,201,167,0.4); }
+    .db-add-btn svg { width: 16px; height: 16px; }
+    .db-table-section-title { font-size: 1.0625rem; font-weight: 600; color: #fff; margin-bottom: 16px; }
+
+    /* Table */
+    .db-table-container { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; overflow: hidden; }
+    .db-table-header, .db-table-row { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr 0.7fr; align-items: center; gap: 8px; }
+    .db-table-header { padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .db-table-header span { font-size: 0.6875rem; font-weight: 600; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.05em; }
+    .db-table-row { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.15s; cursor: pointer; }
+    .db-table-row:last-child { border-bottom: none; }
+    .db-table-row:hover { background: rgba(0,201,167,0.03); }
+    .db-row-patient-name { font-size: 0.9375rem; font-weight: 500; color: #fff; }
+    .db-row-patient-meta { font-size: 0.75rem; color: rgba(255,255,255,0.35); margin-top: 2px; }
+    .db-row-diag-name { font-size: 0.9rem; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+    .db-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; white-space: nowrap; }
+    .db-status-dot { width: 6px; height: 6px; border-radius: 50%; }
+    .db-status-ok { background: rgba(16,185,129,0.12); color: #10B981; border: 1px solid rgba(16,185,129,0.25); }
+    .db-status-ok .db-status-dot { background: #10B981; }
+    .db-status-flag { background: rgba(245,158,11,0.12); color: #F59E0B; border: 1px solid rgba(245,158,11,0.25); }
+    .db-status-flag .db-status-dot { background: #F59E0B; }
+    .db-status-review { background: rgba(239,68,68,0.12); color: #EF4444; border: 1px solid rgba(239,68,68,0.25); }
+    .db-status-review .db-status-dot { background: #EF4444; }
+    .db-row-open-btn { display: inline-flex; align-items: center; justify-content: center; padding: 6px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: rgba(255,255,255,0.5); font-size: 0.8125rem; font-weight: 500; cursor: pointer; font-family: inherit; text-decoration: none; transition: all 0.2s; }
+    .db-row-open-btn:hover, .db-table-row:hover .db-row-open-btn { border-color: rgba(0,201,167,0.5); color: #00C9A7; }
+    .db-table-footer { padding: 14px 20px; font-size: 0.8125rem; color: rgba(255,255,255,0.3); border-top: 1px solid rgba(255,255,255,0.04); }
+    .db-empty-state { text-align: center; padding: 40px; color: rgba(255,255,255,0.3); }
+    .db-empty-state p { margin-bottom: 12px; }
+
+    /* Upload Modal */
+    .upload-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+    .upload-modal-overlay.open { display: flex; }
+    .upload-modal { background: #111640; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 32px; width: 480px; max-width: 90vw; }
+    .upload-modal h3 { color: #fff; font-size: 1.0625rem; font-weight: 600; margin-bottom: 20px; }
+    .upload-field { margin-bottom: 16px; }
+    .upload-field label { display: block; color: rgba(255,255,255,0.5); font-size: 0.8125rem; font-weight: 500; margin-bottom: 6px; }
+    .upload-field input[type="file"] { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 14px; color: rgba(255,255,255,0.7); font-size: 0.875rem; font-family: inherit; cursor: pointer; }
+    .upload-field input[type="file"]:focus { outline: none; border-color: rgba(0,201,167,0.4); }
+    .upload-modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+    .upload-submit-btn { flex: 1; padding: 12px; border-radius: 10px; background: linear-gradient(135deg, #00C9A7, #00B89A); color: #0A0F2C; font-size: 0.9375rem; font-weight: 600; border: none; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+    .upload-submit-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,201,167,0.4); }
+    .upload-cancel-btn { padding: 12px 20px; border-radius: 10px; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; font-family: inherit; font-size: 0.9375rem; transition: all 0.2s; }
+    .upload-cancel-btn:hover { border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 2000; background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: #10B981; border-radius: 12px; padding: 14px 20px; font-size: 0.875rem; font-weight: 500; display: flex; align-items: center; gap: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); animation: toastIn 0.3s ease; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 768px) {
+      .db-sidebar { width: 72px; }
+      .db-sidebar .db-nav-label, .db-sidebar .db-sidebar-logo-text, .db-sidebar .db-collapse-label, .db-sidebar .db-logout-label { opacity: 0; pointer-events: none; }
+      .db-main { margin-left: 72px; }
+      .db-header { left: 72px; }
+      .db-table-header, .db-table-row { grid-template-columns: 1.5fr 1fr 1fr 0.8fr 0.6fr; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Sidebar -->
+  <aside class="db-sidebar" id="sidebar">
+    <a th:href="@{/web/dashboard}" class="db-sidebar-logo">
+      <div class="db-sidebar-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00C9A7" stroke-width="2" stroke-linecap="round">
+          <path d="M12 2v6M12 16v6M2 12h6M16 12h6"/>
+          <circle cx="12" cy="12" r="3" fill="none"/>
+        </svg>
+      </div>
+      <span class="db-sidebar-logo-text">PATHAI</span>
+    </a>
+    <nav class="db-sidebar-nav">
+      <a th:href="@{/web/dashboard}" class="db-nav-item active">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="db-nav-label">Пациенты</span>
+        <span class="db-tooltip">Пациенты</span>
+      </a>
+    </nav>
+    <div class="db-sidebar-footer">
+      <button class="db-collapse-btn" id="sidebar-toggle">
+        <svg id="collapse-icon-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        <svg id="collapse-icon-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="db-collapse-label">Свернуть</span>
+      </button>
+      <a th:href="@{/web/logout}" class="db-logout-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span class="db-logout-label">Выйти</span>
+        <span class="db-tooltip">Выйти</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Header -->
+  <header class="db-header" id="db-header">
+    <div>
+      <div class="db-header-title">Панель врача</div>
+      <div class="db-header-subtitle">Мониторинг пациентов и анализ лечения</div>
+    </div>
+    <div class="db-header-right">
+      <div class="db-header-divider"></div>
+      <div class="db-doctor-info">
+        <div class="db-doctor-text">
+          <div class="db-doctor-name" th:text="${username}">Врач</div>
+          <div class="db-doctor-role">Онколог</div>
+        </div>
+        <div class="db-doctor-avatar" th:text="${#strings.toUpperCase(#strings.substring(username, 0, 2))}">ДР</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <div class="db-main" id="main-content">
+    <div class="db-page">
+
+      <!-- Flash messages -->
+      <div class="toast" th:if="${uploadSuccess}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Пациент добавлен и обрабатывается
+      </div>
+      <div class="toast" style="border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.12); color: #EF4444;" th:if="${uploadError}" th:text="'Ошибка: ' + ${uploadError}"></div>
+
+      <!-- Section title -->
+      <div class="db-section-top">
+        <div class="db-section-title-row">
+          <h1 class="db-section-title">Обзор пациентов</h1>
+          <span class="db-updated-badge">Обновлено</span>
+        </div>
+        <div class="db-section-subtitle">Мониторинг соответствия лечения клиническим стандартам</div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="db-stats-grid">
+        <div class="db-stat-card" data-color="teal">
+          <div class="db-stat-top">
+            <div class="db-stat-label">Всего пациентов</div>
+            <div class="db-stat-icon db-stat-icon-teal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+          </div>
+          <div class="db-stat-value" data-color="teal" th:text="${total}">0</div>
+        </div>
+        <div class="db-stat-card" data-color="teal">
+          <div class="db-stat-top">
+            <div class="db-stat-label">Обработано</div>
+            <div class="db-stat-icon db-stat-icon-teal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+          </div>
+          <div class="db-stat-value" data-color="teal" th:text="${completed}">0</div>
+        </div>
+        <div class="db-stat-card" data-color="yellow">
+          <div class="db-stat-top">
+            <div class="db-stat-label">В обработке</div>
+            <div class="db-stat-icon db-stat-icon-yellow">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+          </div>
+          <div class="db-stat-value" data-color="yellow" th:text="${total - completed}">0</div>
+        </div>
+        <div class="db-stat-card" data-color="blue">
+          <div class="db-stat-top">
+            <div class="db-stat-label">Система</div>
+            <div class="db-stat-icon db-stat-icon-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
+          </div>
+          <div class="db-stat-value" data-color="blue">AI</div>
+        </div>
+      </div>
+
+      <!-- Patients heading -->
+      <h2 class="db-table-section-title">Список пациентов</h2>
+
+      <!-- Toolbar -->
+      <div class="db-toolbar">
+        <div class="db-search-wrap">
+          <svg class="db-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-input" placeholder="Поиск по пациенту или диагнозу..." oninput="filterTable()">
+        </div>
+        <button class="db-add-btn" onclick="openUploadModal()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Добавить пациента
+        </button>
+      </div>
+
+      <!-- Table -->
+      <div class="db-table-container">
+        <div class="db-table-header">
+          <span>Пациент</span>
+          <span>Диагноз</span>
+          <span>Стадия</span>
+          <span>Статус</span>
+          <span></span>
+        </div>
+
+        <!-- Empty state -->
+        <div class="db-empty-state" th:if="${#lists.isEmpty(documents)}">
+          <p>Пациенты не найдены. Добавьте первого пациента.</p>
+          <button class="db-add-btn" onclick="openUploadModal()" style="margin: 0 auto;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Добавить пациента
+          </button>
+        </div>
+
+        <div id="patients-tbody">
+          <div class="db-table-row"
+               th:each="doc : ${documents}"
+               th:onclick="'window.location.href=\'' + @{/web/patients/{id}(id=${doc.id})} + '\''">
+            <div>
+              <div class="db-row-patient-name"
+                   th:text="${doc.extractedData?.fioInitials} ?: ${doc.medicalHistoryFilename}">—</div>
+              <div class="db-row-patient-meta"
+                   th:text="${doc.extractedData?.dateOfBirth} != null ? 'Дата рождения: ' + ${doc.extractedData.dateOfBirth} : ''"></div>
+            </div>
+            <div>
+              <div class="db-row-diag-name"
+                   th:text="${doc.extractedData?.diagnosisPrimary} ?: '—'">—</div>
+            </div>
+            <div>
+              <span th:text="${doc.extractedData?.stage} ?: '—'" style="color: rgba(255,255,255,0.7); font-size: 0.875rem;">—</span>
+            </div>
+            <div>
+              <span class="db-status-badge"
+                    th:classappend="${doc.status == 'COMPLETED'} ? 'db-status-ok' : (${doc.status == 'FAILED'} ? 'db-status-review' : 'db-status-flag')">
+                <span class="db-status-dot"></span>
+                <span th:switch="${doc.status}">
+                  <span th:case="'COMPLETED'">Обработан</span>
+                  <span th:case="'FAILED'">Ошибка</span>
+                  <span th:case="'PROCESSING'">Обработка</span>
+                  <span th:case="*">Ожидание</span>
+                </span>
+              </span>
+            </div>
+            <div>
+              <a class="db-row-open-btn"
+                 th:href="@{/web/patients/{id}(id=${doc.id})}"
+                 onclick="event.stopPropagation()">Открыть</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="db-table-footer" th:if="${!#lists.isEmpty(documents)}">
+          <span th:text="'Показано ' + ${#lists.size(documents)} + ' пациентов'"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Upload Modal -->
+  <div class="upload-modal-overlay" id="upload-modal-overlay">
+    <div class="upload-modal">
+      <h3>Добавить пациента</h3>
+      <form th:action="@{/web/upload}" method="post" enctype="multipart/form-data">
+        <div class="upload-field">
+          <label>История болезни (PDF/TXT) <span style="color:#00C9A7">*</span></label>
+          <input type="file" name="medicalHistory" accept=".pdf,.txt" required>
+        </div>
+        <div class="upload-field">
+          <label>План лечения (PDF/TXT, необязательно)</label>
+          <input type="file" name="treatmentPlan" accept=".pdf,.txt">
+        </div>
+        <div class="upload-modal-actions">
+          <button type="submit" class="upload-submit-btn">Загрузить и обработать</button>
+          <button type="button" class="upload-cancel-btn" onclick="closeUploadModal()">Отмена</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Particle canvas
+    (function() {
+      const canvas = document.getElementById('particle-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let particles = [];
+      const MAX = 35, SPEED = 0.15, CONNECT_DIST = 140;
+      function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+      resize(); window.addEventListener('resize', resize);
+      for (let i = 0; i < MAX; i++) {
+        particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, vx: (Math.random()-0.5)*SPEED*2, vy: (Math.random()-0.5)*SPEED*2, r: 0.3+Math.random()*1.2, o: 0.03+Math.random()*0.12 });
+      }
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i+1; j < particles.length; j++) {
+            const dx = particles[i].x-particles[j].x, dy = particles[i].y-particles[j].y;
+            const dist = Math.sqrt(dx*dx+dy*dy);
+            if (dist < CONNECT_DIST) { ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y); ctx.lineTo(particles[j].x, particles[j].y); ctx.strokeStyle='rgba(0,201,167,'+(0.04*(1-dist/CONNECT_DIST))+')'; ctx.lineWidth=0.5; ctx.stroke(); }
+          }
+        }
+        for (const p of particles) {
+          p.x+=p.vx; p.y+=p.vy;
+          if (p.x<0||p.x>canvas.width) p.vx*=-1;
+          if (p.y<0||p.y>canvas.height) p.vy*=-1;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+          ctx.fillStyle='rgba(0,201,167,'+p.o+')'; ctx.fill();
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+    })();
+
+    // Sidebar toggle
+    (function() {
+      const sidebar = document.getElementById('sidebar');
+      const toggleBtn = document.getElementById('sidebar-toggle');
+      const iconLeft = document.getElementById('collapse-icon-left');
+      const iconRight = document.getElementById('collapse-icon-right');
+      function applyState(collapsed) {
+        if (collapsed) {
+          sidebar.classList.add('collapsed'); document.body.classList.add('sidebar-collapsed');
+          iconLeft.style.display='none'; iconRight.style.display='block';
+        } else {
+          sidebar.classList.remove('collapsed'); document.body.classList.remove('sidebar-collapsed');
+          iconLeft.style.display='block'; iconRight.style.display='none';
+        }
+      }
+      applyState(localStorage.getItem('sidebar-collapsed') === 'true');
+      toggleBtn.addEventListener('click', () => {
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        applyState(!isCollapsed);
+        localStorage.setItem('sidebar-collapsed', !isCollapsed);
+      });
+    })();
+
+    // Upload modal
+    function openUploadModal() { document.getElementById('upload-modal-overlay').classList.add('open'); }
+    function closeUploadModal() { document.getElementById('upload-modal-overlay').classList.remove('open'); }
+    document.getElementById('upload-modal-overlay').addEventListener('click', function(e) {
+      if (e.target === this) closeUploadModal();
+    });
+
+    // Auto-hide toast after 4s
+    setTimeout(() => {
+      const toasts = document.querySelectorAll('.toast');
+      toasts.forEach(t => { t.style.opacity = '0'; t.style.transition = 'opacity 0.5s'; setTimeout(() => t.remove(), 500); });
+    }, 4000);
+
+    // Client-side search
+    function filterTable() {
+      const q = document.getElementById('search-input').value.toLowerCase();
+      const rows = document.querySelectorAll('#patients-tbody .db-table-row');
+      rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = !q || text.includes(q) ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>

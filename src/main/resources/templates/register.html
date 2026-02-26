@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Регистрация — PATH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" th:href="@{/css/styles.css}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0A0F2C 0%, #060A1F 50%, #0D1235 100%);
+      font-family: 'Inter', sans-serif;
+      color: #E2E8F0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    #particles-canvas {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 0; pointer-events: none;
+    }
+    .reg-container {
+      width: 100%; max-width: 512px;
+      position: relative; z-index: 1;
+    }
+    .reg-logo {
+      text-align: center; margin-bottom: 28px;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+    }
+    .reg-logo-row { display: flex; align-items: center; gap: 10px; }
+    .reg-logo-text {
+      font-size: 1.5rem; font-weight: 700;
+      background: linear-gradient(135deg, #00C9A7, #60A5FA);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .reg-logo-subtitle { font-size: 0.9375rem; color: rgba(255,255,255,0.45); font-weight: 400; }
+
+    .reg-card {
+      position: relative;
+      background: rgba(12,17,48,0.7);
+      border: 1px solid rgba(0,201,167,0.12);
+      border-radius: 20px; padding: 40px;
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 0 60px rgba(0,201,167,0.06), 0 8px 32px rgba(0,0,0,0.4);
+      overflow: hidden;
+    }
+    .reg-card::before {
+      content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,201,167,0.4), transparent);
+    }
+    .reg-card::after {
+      content: ''; position: absolute; top: -60px; right: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, rgba(0,201,167,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+    .form-label { font-size: 0.8125rem; font-weight: 500; color: rgba(255,255,255,0.55); display: flex; align-items: center; gap: 6px; }
+    .form-label .req { color: #00C9A7; }
+    .form-input {
+      width: 100%; padding: 11px 14px;
+      background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08);
+      border-radius: 12px; color: #E2E8F0; font-size: 0.9375rem;
+      font-family: 'Inter', sans-serif; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-input::placeholder { color: rgba(255,255,255,0.25); }
+    .form-input:focus {
+      border-color: rgba(0,201,167,0.5);
+      box-shadow: 0 0 0 3px rgba(0,201,167,0.1), 0 0 16px rgba(0,201,167,0.08);
+    }
+
+    .pw-wrapper { position: relative; }
+    .pw-wrapper .form-input { padding-right: 44px; }
+    .pw-toggle-btn {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: rgba(255,255,255,0.35);
+      display: flex; align-items: center; justify-content: center; padding: 4px;
+      transition: color 0.2s;
+    }
+    .pw-toggle-btn:hover { color: rgba(255,255,255,0.6); }
+    .pw-toggle-btn svg { width: 18px; height: 18px; }
+
+    .form-error {
+      background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 10px; padding: 12px 16px; color: #FCA5A5;
+      font-size: 0.8125rem; line-height: 1.5; margin-bottom: 16px;
+    }
+    .submit-btn {
+      width: 100%; padding: 14px; background: #00C9A7; color: #0A0F2C;
+      font-size: 1rem; font-weight: 600; border-radius: 12px; border: none;
+      cursor: pointer; transition: all 0.2s; margin-top: 8px;
+      font-family: 'Inter', sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .submit-btn:hover:not(:disabled) {
+      background: #00E0BA; transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(0,201,167,0.4);
+    }
+    .reg-note { text-align: center; margin-top: 16px; font-size: 0.75rem; color: rgba(255,255,255,0.35); line-height: 1.5; }
+    .login-link { text-align: center; margin-top: 16px; font-size: 0.875rem; color: rgba(255,255,255,0.45); }
+    .login-link a { color: #00C9A7; text-decoration: none; }
+    .login-link a:hover { text-decoration: underline; }
+
+    @media (max-width: 540px) {
+      .reg-card { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles-canvas"></canvas>
+
+  <div class="reg-container">
+    <!-- Logo -->
+    <div class="reg-logo">
+      <div class="reg-logo-row">
+        <svg width="42" height="42" viewBox="0 0 36 36" fill="none">
+          <defs><radialGradient id="logoGlow" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#00C9A7" stop-opacity="0.3"/><stop offset="100%" stop-color="#00C9A7" stop-opacity="0"/></radialGradient></defs>
+          <circle cx="18" cy="18" r="18" fill="url(#logoGlow)"/>
+          <rect x="15" y="8" width="6" height="20" rx="1.5" fill="#00C9A7"/>
+          <rect x="8" y="15" width="20" height="6" rx="1.5" fill="#00C9A7"/>
+        </svg>
+        <span class="reg-logo-text">PATHAI</span>
+      </div>
+      <span class="reg-logo-subtitle">Регистрация врача</span>
+    </div>
+
+    <!-- Card -->
+    <div class="reg-card">
+      <!-- Error box -->
+      <div class="form-error" th:if="${param.error}">
+        <span th:text="${param.error[0]}">Ошибка регистрации</span>
+      </div>
+
+      <form th:action="@{/web/register-process}" method="post">
+        <!-- Username -->
+        <div class="form-group">
+          <label class="form-label">Логин <span class="req">*</span></label>
+          <input type="text" class="form-input" name="username" placeholder="doctor_login" required minlength="3" maxlength="50">
+        </div>
+
+        <!-- Email -->
+        <div class="form-group">
+          <label class="form-label">Email <span class="req">*</span></label>
+          <input type="email" class="form-input" name="email" placeholder="doctor@clinic.ru" required>
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <label class="form-label">Пароль <span class="req">*</span></label>
+          <div class="pw-wrapper">
+            <input type="password" class="form-input" id="password" name="password" placeholder="Минимум 6 символов" required minlength="6">
+            <button type="button" class="pw-toggle-btn" data-target="password">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="icon-eye-off" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" class="submit-btn">Зарегистрироваться</button>
+      </form>
+
+      <p class="reg-note">Все данные защищены шифрованием</p>
+      <div class="login-link">
+        Уже есть аккаунт? <a th:href="@{/web/login}">Войти</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Particle background
+    (function() {
+      const canvas = document.getElementById('particles-canvas');
+      const ctx = canvas.getContext('2d');
+      const COUNT = 40;
+      function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+      window.addEventListener('resize', resize); resize();
+      const particles = [];
+      for (let i = 0; i < COUNT; i++) {
+        particles.push({
+          x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+          r: 0.3 + Math.random() * 1.2, opacity: 0.03 + Math.random() * 0.15,
+          vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2
+        });
+      }
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (const p of particles) {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < -10) p.x = canvas.width + 10;
+          if (p.x > canvas.width + 10) p.x = -10;
+          if (p.y < -10) p.y = canvas.height + 10;
+          if (p.y > canvas.height + 10) p.y = -10;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 201, 167, ' + p.opacity + ')'; ctx.fill();
+        }
+        requestAnimationFrame(animate);
+      }
+      animate();
+    })();
+
+    // Password toggles
+    document.querySelectorAll('.pw-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        const eyeOn = btn.querySelector('.icon-eye');
+        const eyeOff = btn.querySelector('.icon-eye-off');
+        if (input.type === 'password') {
+          input.type = 'text'; eyeOn.style.display = 'none'; eyeOff.style.display = 'block';
+        } else {
+          input.type = 'password'; eyeOn.style.display = 'block'; eyeOff.style.display = 'none';
+        }
+      });
+    });
+  </script>
+</body>
+</html>
